@@ -4,6 +4,8 @@ import Script from "next/script";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type TelegramWebApp = {
+  version?: string;
+  isVersionAtLeast?: (version: string) => boolean;
   ready: () => void;
   expand: () => void;
   close: () => void;
@@ -74,11 +76,19 @@ export default function Home() {
     app.ready();
     app.expand();
 
-    if (typeof app.requestWriteAccess === "function") {
-      setWriteAccess("requested");
-      app.requestWriteAccess((granted) => {
-        setWriteAccess(granted ? "granted" : "denied");
-      });
+    const canRequestWriteAccess =
+      typeof app.requestWriteAccess === "function" &&
+      (typeof app.isVersionAtLeast !== "function" || app.isVersionAtLeast("6.9"));
+
+    if (canRequestWriteAccess) {
+      try {
+        setWriteAccess("requested");
+        app.requestWriteAccess?.((granted) => {
+          setWriteAccess(granted ? "granted" : "denied");
+        });
+      } catch {
+        setWriteAccess("unavailable");
+      }
     } else {
       setWriteAccess("unavailable");
     }
