@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useState } from "react";
 
 type TelegramWebApp = {
   version?: string;
@@ -21,11 +21,7 @@ type TelegramWebApp = {
   sendData: (data: string) => void;
   requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
   MainButton?: {
-    text: string;
-    show: () => void;
     hide: () => void;
-    onClick: (callback: () => void) => void;
-    offClick: (callback: () => void) => void;
   };
   HapticFeedback?: {
     impactOccurred: (style: "light" | "medium" | "heavy") => void;
@@ -85,6 +81,7 @@ export default function Home() {
 
     app.ready();
     app.expand();
+    app.MainButton?.hide();
 
     const canRequestWriteAccess =
       typeof app.requestWriteAccess === "function" &&
@@ -139,22 +136,6 @@ export default function Home() {
         app?.HapticFeedback?.notificationOccurred("error");
       });
   }, [answers, contacts, writeAccess]);
-
-  useEffect(() => {
-    const app = window.Telegram?.WebApp;
-    const button = app?.MainButton;
-
-    if (!button) return;
-
-    button.text = "Забрать скидку";
-    button.show();
-    button.onClick(submitForm);
-
-    return () => {
-      button.offClick(submitForm);
-      button.hide();
-    };
-  }, [submitForm]);
 
   return (
     <>
