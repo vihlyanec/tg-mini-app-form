@@ -63,7 +63,6 @@ export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [contacts, setContacts] = useState({ name: "", email: "", phone: "" });
   const [writeAccess, setWriteAccess] = useState<"idle" | "requested" | "granted" | "denied" | "unavailable">("idle");
-  const [submitted, setSubmitted] = useState(false);
 
   const initTelegram = useCallback(() => {
     const app = window.Telegram?.WebApp;
@@ -94,7 +93,7 @@ export default function Home() {
     }
   }, []);
 
-  function submitForm(event?: FormEvent<HTMLFormElement>) {
+  const submitForm = useCallback((event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
 
     const payload = {
@@ -107,8 +106,7 @@ export default function Home() {
 
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
     window.Telegram?.WebApp?.sendData(JSON.stringify(payload));
-    setSubmitted(true);
-  }
+  }, [answers, contacts, writeAccess]);
 
   useEffect(() => {
     const app = window.Telegram?.WebApp;
@@ -124,7 +122,7 @@ export default function Home() {
       button.offClick(submitForm);
       button.hide();
     };
-  });
+  }, [submitForm]);
 
   return (
     <>
@@ -140,6 +138,29 @@ export default function Home() {
           onSubmit={submitForm}
           className="mx-auto flex w-full max-w-[560px] flex-col gap-4 pb-8"
         >
+          <section className="rounded-[8px] border border-[#e2d7c8] bg-white p-5 shadow-[0_12px_32px_rgb(38_29_20/10%)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#856f47]">
+              Анкета
+            </p>
+            <h1 className="mt-3 text-[32px] font-semibold leading-none">
+              АНКЕТА
+            </h1>
+            <div className="mt-4 space-y-3 text-[15px] leading-6 text-[#4f453a]">
+              <p>Рада тебя видеть, вижу интерес к миру тату.</p>
+              <p>
+                Я ценю время каждого и консультирую лично. Чтобы я могла
+                подобрать решение, которое идеально подойдет под твой запрос,
+                заполни эту короткую анкету, после которой я свяжусь с тобой в
+                приоритетном порядке. Кроме того, при заполнении фиксируется
+                персональная скидка.
+              </p>
+              <p className="font-semibold text-[#201c18]">
+                Ответь на несколько вопросов ниже и получи выгодные условия
+                прямо сейчас.
+              </p>
+            </div>
+          </section>
+
           <section className="overflow-hidden rounded-[8px] bg-[#171311] text-white shadow-[0_18px_45px_rgb(38_29_20/16%)]">
             <div className="relative min-h-[140px] border-b border-white/10 bg-[#2b2420] p-5">
               <div aria-hidden="true" className="absolute right-4 top-4 grid grid-cols-3 gap-1.5 opacity-50">
@@ -245,18 +266,6 @@ export default function Home() {
             >
               Забрать скидку
             </button>
-
-            <p className="mt-3 text-center text-xs leading-5 text-[#7c7165]">
-              {submitted
-                ? "Готово. Данные отправлены в Telegram-бот."
-                : writeAccess === "granted"
-                  ? "Разрешение на сообщения получено."
-                  : writeAccess === "denied"
-                    ? "Разрешение можно будет выдать в Telegram при следующем открытии."
-                    : writeAccess === "unavailable"
-                      ? "Открой страницу внутри Telegram, чтобы активировать подписку."
-                      : "Запрашиваем разрешение на сообщения в Telegram."}
-            </p>
           </section>
         </form>
       </main>
