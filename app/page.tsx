@@ -139,13 +139,7 @@ export default function Home() {
           className="mx-auto flex w-full max-w-[560px] flex-col gap-4 pb-8"
         >
           <section className="rounded-[8px] border border-[#e2d7c8] bg-white p-5 shadow-[0_12px_32px_rgb(38_29_20/10%)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#856f47]">
-              Анкета
-            </p>
-            <h1 className="mt-3 text-[32px] font-semibold leading-none">
-              АНКЕТА
-            </h1>
-            <div className="mt-4 space-y-3 text-[15px] leading-6 text-[#4f453a]">
+            <div className="space-y-3 text-[15px] leading-6 text-[#4f453a]">
               <p>Рада тебя видеть, вижу интерес к миру тату.</p>
               <p>
                 Я ценю время каждого и консультирую лично. Чтобы я могла
