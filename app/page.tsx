@@ -6,6 +6,15 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 type TelegramWebApp = {
   version?: string;
   isVersionAtLeast?: (version: string) => boolean;
+  initData?: string;
+  initDataUnsafe?: {
+    user?: {
+      id?: number;
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+    };
+  };
   ready: () => void;
   expand: () => void;
   close: () => void;
@@ -58,11 +67,13 @@ const questions = [
 ] as const;
 
 const initialAnswers = Object.fromEntries(questions.map((question) => [question.id, ""]));
+const proxyUrl = "https://tg-mini-app-form-proxy.vihlyanec.workers.dev";
 
 export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [contacts, setContacts] = useState({ name: "", email: "", phone: "" });
   const [writeAccess, setWriteAccess] = useState<"idle" | "requested" | "granted" | "denied" | "unavailable">("idle");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "sending" | "error">("idle");
 
   const initTelegram = useCallback(() => {
     const app = window.Telegram?.WebApp;
@@ -95,17 +106,38 @@ export default function Home() {
 
   const submitForm = useCallback((event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
+    setSubmitStatus("sending");
 
+    const app = window.Telegram?.WebApp;
     const payload = {
       type: "discount_request",
       answers,
       contacts,
       writeAccess,
+      initData: app?.initData ?? "",
+      telegramUser: app?.initDataUnsafe?.user ?? null,
       submittedAt: new Date().toISOString(),
     };
 
-    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred("success");
-    window.Telegram?.WebApp?.sendData(JSON.stringify(payload));
+    fetch(proxyUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Request failed");
+        }
+
+        app?.HapticFeedback?.notificationOccurred("success");
+        app?.close();
+      })
+      .catch(() => {
+        setSubmitStatus("error");
+        app?.HapticFeedback?.notificationOccurred("error");
+      });
   }, [answers, contacts, writeAccess]);
 
   useEffect(() => {
@@ -256,10 +288,18 @@ export default function Home() {
 
             <button
               type="submit"
+              disabled={submitStatus === "sending"}
               className="mt-5 flex h-[52px] w-full items-center justify-center rounded-[8px] bg-[#201c18] px-5 text-[16px] font-semibold text-white transition active:scale-[0.99]"
             >
-              Забрать скидку
+              {submitStatus === "sending" ? "Отправляем..." : "Забрать скидку"}
             </button>
+
+            {submitStatus === "error" && (
+              <p className="mt-3 text-center text-xs leading-5 text-[#8f2b20]">
+                Не получилось отправить данные. Проверь соединение и попробуй
+                еще раз.
+              </p>
+            )}
           </section>
         </form>
       </main>

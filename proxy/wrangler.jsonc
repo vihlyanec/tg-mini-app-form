@@ -1,0 +1,11 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "tg-mini-app-form-proxy",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-29",
+  "vars": {
+    "SALEBOT_GROUP_ID": "vechnaya_liza_bot",
+    "ALLOWED_ORIGIN": "https://vihlyanec.github.io",
+    "SALEBOT_MESSAGE": "tg_mini_app_form"
+  }
+}
