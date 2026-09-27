@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { FormEvent, useCallback, useState } from "react";
+import { FormEvent, useCallback, useRef, useState } from "react";
 
 type TelegramWebApp = {
   version?: string;
@@ -19,6 +19,7 @@ type TelegramWebApp = {
   expand: () => void;
   close: () => void;
   sendData: (data: string) => void;
+  requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
   MainButton?: {
     hide: () => void;
   };
@@ -67,7 +68,9 @@ const proxyUrl = "https://tg-mini-app-form-proxy.vihlyanec.workers.dev";
 export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [contacts, setContacts] = useState({ name: "", email: "", phone: "" });
+  const [writeAccess, setWriteAccess] = useState<"idle" | "requested" | "granted" | "denied" | "unavailable">("idle");
   const [submitStatus, setSubmitStatus] = useState<"idle" | "sending" | "success" | "error" | "telegramRequired">("idle");
+  const hasRequestedWriteAccess = useRef(false);
 
   const initTelegram = useCallback(() => {
     const app = window.Telegram?.WebApp;
@@ -79,6 +82,27 @@ export default function Home() {
     app.ready();
     app.expand();
     app.MainButton?.hide();
+
+    const canRequestWriteAccess =
+      typeof app.requestWriteAccess === "function" &&
+      (typeof app.isVersionAtLeast !== "function" || app.isVersionAtLeast("6.9"));
+
+    if (!canRequestWriteAccess) {
+      setWriteAccess("unavailable");
+      return;
+    }
+
+    if (hasRequestedWriteAccess.current) return;
+
+    hasRequestedWriteAccess.current = true;
+    setWriteAccess("requested");
+    try {
+      app.requestWriteAccess?.((granted) => {
+        setWriteAccess(granted ? "granted" : "denied");
+      });
+    } catch {
+      setWriteAccess("unavailable");
+    }
   }, []);
 
   const submitForm = useCallback((event?: FormEvent<HTMLFormElement>) => {
@@ -95,6 +119,7 @@ export default function Home() {
       type: "personal_consultation_request",
       answers,
       contacts,
+      writeAccess,
       initData: app?.initData ?? "",
       telegramUser: app?.initDataUnsafe?.user ?? null,
       submittedAt: new Date().toISOString(),
@@ -119,7 +144,7 @@ export default function Home() {
         setSubmitStatus("error");
         app?.HapticFeedback?.notificationOccurred("error");
       });
-  }, [answers, contacts]);
+  }, [answers, contacts, writeAccess]);
 
   return (
     <>
