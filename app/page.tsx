@@ -19,7 +19,6 @@ type TelegramWebApp = {
   expand: () => void;
   close: () => void;
   sendData: (data: string) => void;
-  requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
   MainButton?: {
     hide: () => void;
   };
@@ -68,49 +67,34 @@ const proxyUrl = "https://tg-mini-app-form-proxy.vihlyanec.workers.dev";
 export default function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers);
   const [contacts, setContacts] = useState({ name: "", email: "", phone: "" });
-  const [writeAccess, setWriteAccess] = useState<"idle" | "requested" | "granted" | "denied" | "unavailable">("idle");
-  const [submitStatus, setSubmitStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "sending" | "success" | "error" | "telegramRequired">("idle");
 
   const initTelegram = useCallback(() => {
     const app = window.Telegram?.WebApp;
 
     if (!app) {
-      setWriteAccess("unavailable");
       return;
     }
 
     app.ready();
     app.expand();
     app.MainButton?.hide();
-
-    const canRequestWriteAccess =
-      typeof app.requestWriteAccess === "function" &&
-      (typeof app.isVersionAtLeast !== "function" || app.isVersionAtLeast("6.9"));
-
-    if (canRequestWriteAccess) {
-      try {
-        setWriteAccess("requested");
-        app.requestWriteAccess?.((granted) => {
-          setWriteAccess(granted ? "granted" : "denied");
-        });
-      } catch {
-        setWriteAccess("unavailable");
-      }
-    } else {
-      setWriteAccess("unavailable");
-    }
   }, []);
 
   const submitForm = useCallback((event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
-    setSubmitStatus("sending");
-
     const app = window.Telegram?.WebApp;
+
+    if (!app?.initDataUnsafe?.user?.id && !app?.initData) {
+      setSubmitStatus("telegramRequired");
+      return;
+    }
+
+    setSubmitStatus("sending");
     const payload = {
-      type: "discount_request",
+      type: "personal_consultation_request",
       answers,
       contacts,
-      writeAccess,
       initData: app?.initData ?? "",
       telegramUser: app?.initDataUnsafe?.user ?? null,
       submittedAt: new Date().toISOString(),
@@ -129,13 +113,13 @@ export default function Home() {
         }
 
         app?.HapticFeedback?.notificationOccurred("success");
-        app?.close();
+        setSubmitStatus("success");
       })
       .catch(() => {
         setSubmitStatus("error");
         app?.HapticFeedback?.notificationOccurred("error");
       });
-  }, [answers, contacts, writeAccess]);
+  }, [answers, contacts]);
 
   return (
     <>
@@ -153,17 +137,17 @@ export default function Home() {
         >
           <section className="rounded-[8px] border border-[#e2d7c8] bg-white p-5 shadow-[0_12px_32px_rgb(38_29_20/10%)]">
             <div className="space-y-3 text-[15px] leading-6 text-[#4f453a]">
-              <p>Рада тебя видеть, вижу интерес к миру тату.</p>
+              <p>Рада тебя видеть — вижу твой интерес к профессии тату-мастера.</p>
               <p>
-                Я ценю время каждого и консультирую лично. Чтобы я могла
-                подобрать решение, которое идеально подойдет под твой запрос,
-                заполни эту короткую анкету, после которой я свяжусь с тобой в
-                приоритетном порядке. Кроме того, при заполнении фиксируется
-                персональная скидка.
+                На бесплатном личном разборе мы посмотрим именно твою
+                ситуацию: с какой точки ты начинаешь, чего тебе не хватает
+                для старта и что поможет двигаться к первым уверенным работам
+                и клиентам.
               </p>
               <p className="font-semibold text-[#201c18]">
-                Ответь на несколько вопросов ниже и получи выгодные условия
-                прямо сейчас.
+                Ответь на несколько вопросов ниже — и на консультации получи
+                понятный маршрут: что делать сначала, какие навыки развивать
+                и на что пока не тратить время.
               </p>
             </div>
           </section>
@@ -179,10 +163,11 @@ export default function Home() {
                 Мини-анкета
               </p>
               <h1 className="mt-3 max-w-[360px] text-[28px] font-semibold leading-[1.05]">
-                Давай чуть глубже разберем твою ситуацию
+                Получи личный маршрут в профессию тату-мастера
               </h1>
               <p className="mt-3 max-w-[420px] text-[15px] leading-6 text-white/75">
-                Расскажи немного о себе и ответь на вопросы ниже.
+                Ответы помогут разобрать твою ситуацию и сделать консультацию
+                полезной именно для тебя.
               </p>
             </div>
 
@@ -194,6 +179,7 @@ export default function Home() {
                     <span>{question.label}</span>
                   </span>
                   <textarea
+                    required
                     value={answers[question.id]}
                     onChange={(event) =>
                       setAnswers((current) => ({
@@ -216,7 +202,7 @@ export default function Home() {
                 Контакты
               </p>
               <h2 className="mt-2 text-[23px] font-semibold leading-tight">
-                Оставляй свои данные, чтобы получить обратную связь
+                Оставь данные, чтобы записаться на разбор
               </h2>
             </div>
 
@@ -237,7 +223,9 @@ export default function Home() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Почта</span>
+                <span className="mb-1.5 block text-sm font-medium">
+                  Почта <span className="font-normal text-[#786d60]">(необязательно)</span>
+                </span>
                 <input
                   value={contacts.email}
                   onChange={(event) =>
@@ -245,7 +233,6 @@ export default function Home() {
                   }
                   type="email"
                   autoComplete="email"
-                  required
                   placeholder="mail@example.com"
                   className="h-12 w-full rounded-[8px] border border-[#dacfc0] bg-[#fbfaf7] px-4 text-[16px] outline-none transition placeholder:text-[#9f9383] focus:border-[#201c18] focus:bg-white"
                 />
@@ -260,6 +247,7 @@ export default function Home() {
                   }
                   type="tel"
                   autoComplete="tel"
+                  inputMode="tel"
                   required
                   placeholder="+7 999 000-00-00"
                   className="h-12 w-full rounded-[8px] border border-[#dacfc0] bg-[#fbfaf7] px-4 text-[16px] outline-none transition placeholder:text-[#9f9383] focus:border-[#201c18] focus:bg-white"
@@ -272,13 +260,23 @@ export default function Home() {
               disabled={submitStatus === "sending"}
               className="mt-5 flex h-[52px] w-full items-center justify-center rounded-[8px] bg-[#201c18] px-5 text-[16px] font-semibold text-white transition active:scale-[0.99]"
             >
-              {submitStatus === "sending" ? "Отправляем..." : "Забрать скидку"}
+              {submitStatus === "sending" ? "Отправляем..." : "Записаться на личный разбор"}
             </button>
 
+            {submitStatus === "success" && (
+              <p className="mt-3 text-center text-sm leading-5 text-[#37623a]" role="status">
+                Заявка отправлена. Скоро свяжусь с тобой, чтобы согласовать разбор.
+              </p>
+            )}
             {submitStatus === "error" && (
-              <p className="mt-3 text-center text-xs leading-5 text-[#8f2b20]">
+              <p className="mt-3 text-center text-xs leading-5 text-[#8f2b20]" role="alert">
                 Не получилось отправить данные. Проверь соединение и попробуй
                 еще раз.
+              </p>
+            )}
+            {submitStatus === "telegramRequired" && (
+              <p className="mt-3 text-center text-xs leading-5 text-[#8f2b20]" role="alert">
+                Открой анкету по кнопке в Telegram, чтобы отправить заявку.
               </p>
             )}
           </section>
